@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
 // Shared secret between warehouse and support service
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'plp_secret_key_12345';
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 module.exports = async (req, res) => {
   // Allow simple CORS for testing
