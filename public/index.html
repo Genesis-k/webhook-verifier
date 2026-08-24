@@ -36,40 +36,52 @@
   </div>
 
   <script>
-    async function getHmacSha256(secret, message) {
-      const enc = new TextEncoder();
-      const key = await crypto.subtle.importKey(
-        "raw", enc.encode(secret),
-        { name: "HMAC", hash: "SHA-256" },
-        false, ["sign"]
-      );
-      const signature = await crypto.subtle.sign("HMAC", key, enc.encode(message));
-      return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+  async function getHmacSha256(secret, message) {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw", enc.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false, ["sign"]
+    );
+    const signature = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+    return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function sendWebhook(isValid) {
+    const output = document.getElementById('output');
+    const rawText = document.getElementById('payload').value;
+    
+    // Normalize JSON so spaces/indentations match what Vercel processes
+    let payloadStr;
+    try {
+      payloadStr = JSON.stringify(JSON.parse(rawText));
+    } catch (e) {
+      output.textContent = "JSON Error: " + e.message;
+      return;
     }
 
-    async function sendWebhook(isValid) {
-      const output = document.getElementById('output');
-      const payloadStr = document.getElementById('payload').value;
-      const secret = 'plp_secret_key_12345';
-      
-      let sig = await getHmacSha256(secret, payloadStr);
-      if (!isValid) sig = 'bad_' + sig.substring(4);
-
-      try {
-        const res = await fetch('/api/webhook', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Signature-256': sig
-          },
-          body: payloadStr
-        });
-        const data = await res.json();
-        output.textContent = `HTTP ${res.status}\n` + JSON.stringify(data, null, 2);
-      } catch (err) {
-        output.textContent = err.toString();
-      }
+    const secret = 'plp_secret_key_12345';
+    let sig = await getHmacSha256(secret, payloadStr);
+    
+    if (!isValid) {
+      sig = 'bad_' + sig.substring(4);
     }
-  </script>
+
+    try {
+      const res = await fetch('/api/webhook', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Signature-256': sig
+        },
+        body: payloadStr
+      });
+      const data = await res.json();
+      output.textContent = `HTTP ${res.status}\n` + JSON.stringify(data, null, 2);
+    } catch (err) {
+      output.textContent = err.toString();
+    }
+  }
+</script>
 </body>
 </html>
