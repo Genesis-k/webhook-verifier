@@ -1,0 +1,8 @@
+{
+  "name": "inventory-webhook-verifier",
+  "version": "1.0.0",
+  "main": "api/webhook.js",
+  "dependencies": {
+    "crypto": "^1.0.1"
+  }
+}

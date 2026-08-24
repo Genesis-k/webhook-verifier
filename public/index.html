@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Northstar Webhook Verification Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 p-8">
+  <div class="max-w-2xl mx-auto space-y-6">
+    <h1 class="text-2xl font-bold text-teal-400">Inventory Webhook Dispatcher & Verifier</h1>
+    
+    <div>
+      <label class="block mb-2 text-sm font-medium">Payload (JSON):</label>
+      <textarea id="payload" rows="4" class="w-full bg-slate-800 border border-slate-700 p-3 rounded text-sm text-green-400 font-mono">
+{
+  "event": "inventory.updated",
+  "sku": "SKU-4402",
+  "stock": 142,
+  "warehouse": "NA-East"
+}</textarea>
+    </div>
+
+    <div class="flex gap-4">
+      <button onclick="sendWebhook(true)" class="bg-teal-600 hover:bg-teal-500 text-white font-semibold py-2 px-4 rounded text-sm">
+        Send Valid Signed Webhook
+      </button>
+      <button onclick="sendWebhook(false)" class="bg-rose-700 hover:bg-rose-600 text-white font-semibold py-2 px-4 rounded text-sm">
+        Send Tampered/Invalid Signature
+      </button>
+    </div>
+
+    <div>
+      <h2 class="text-sm font-semibold mb-2">Endpoint Response:</h2>
+      <pre id="output" class="bg-black/60 border border-slate-800 p-4 rounded text-xs font-mono overflow-auto h-48 text-slate-300"></pre>
+    </div>
+  </div>
+
+  <script>
+    async function getHmacSha256(secret, message) {
+      const enc = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw", enc.encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false, ["sign"]
+      );
+      const signature = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+      return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function sendWebhook(isValid) {
+      const output = document.getElementById('output');
+      const payloadStr = document.getElementById('payload').value;
+      const secret = 'plp_secret_key_12345';
+      
+      let sig = await getHmacSha256(secret, payloadStr);
+      if (!isValid) sig = 'bad_' + sig.substring(4);
+
+      try {
+        const res = await fetch('/api/webhook', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Signature-256': sig
+          },
+          body: payloadStr
+        });
+        const data = await res.json();
+        output.textContent = `HTTP ${res.status}\n` + JSON.stringify(data, null, 2);
+      } catch (err) {
+        output.textContent = err.toString();
+      }
+    }
+  </script>
+</body>
+</html>
