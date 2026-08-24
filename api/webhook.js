@@ -1,11 +1,20 @@
 const crypto = require('crypto');
 
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
-
 module.exports = async (req, res) => {
+  // Read strictly from the environment variable
+  const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Signature-256');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Fail-safe if the env variable isn't loaded
+  if (!WEBHOOK_SECRET) {
+    return res.status(500).json({ 
+      status: 'error', 
+      error: 'Server misconfiguration: WEBHOOK_SECRET is missing.' 
+    });
+  }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
@@ -21,7 +30,6 @@ module.exports = async (req, res) => {
     });
   }
 
-  // Consistent stringification
   const rawBody = typeof payload === 'string' ? payload : JSON.stringify(payload);
   const expectedSignature = crypto
     .createHmac('sha256', WEBHOOK_SECRET)
@@ -38,15 +46,13 @@ module.exports = async (req, res) => {
     return res.status(403).json({
       status: 'rejected',
       error: 'Invalid signature verification failed',
-      received: signature,
-      expected: expectedSignature
+      received: signature
     });
   }
 
   return res.status(200).json({
     status: 'success',
     message: 'Webhook payload verified and inventory updated successfully.',
-    data: payload,
-    timestamp: new Date().toISOString()
+    data: payload
   });
 };
